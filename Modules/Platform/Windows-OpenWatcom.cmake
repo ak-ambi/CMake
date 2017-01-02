@@ -8,6 +8,25 @@ if(__WINDOWS_OPENWATCOM)
 endif()
 set(__WINDOWS_OPENWATCOM 1)
 
+# Compiler mode is detected by compiler's file name:
+# - wcl: 16-bit
+# - wcl386: 32-bit
+if(NOT _CMAKE_WATCOM_BITS)
+  set(_CMAKE_WATCOM_BITS 1)
+  if("${CMAKE_C_COMPILER_ID}" STREQUAL "OpenWatcom")
+    set(_compiler_path "${CMAKE_C_COMPILER}")
+  else()
+    set(_compiler_path "${CMAKE_C_COMPILER}")
+  endif()
+
+  get_filename_component(_compiler_file_name "${_compiler_path}" NAME_WE)
+  string(TOLOWER "${_compiler_file_name}" _compiler_file_name)
+  set(WATCOM_BITS 32)
+  if(_compiler_file_name STREQUAL "wcl")
+    set(WATCOM_BITS 16)
+  endif()
+endif()
+
 set(CMAKE_LIBRARY_PATH_FLAG "libpath ")
 set(CMAKE_LINK_LIBRARY_FLAG "library ")
 set(CMAKE_LINK_LIBRARY_FILE_FLAG "library")
@@ -23,10 +42,13 @@ else()
 endif()
 
 string(APPEND CMAKE_EXE_LINKER_FLAGS_INIT " ")
-set(CMAKE_CREATE_WIN32_EXE "system nt_win" )
-set(CMAKE_CREATE_CONSOLE_EXE "system nt" )
-string(APPEND CMAKE_SHARED_LINKER_FLAGS_INIT " system nt_dll")
-string(APPEND CMAKE_MODULE_LINKER_FLAGS_INIT " system nt_dll")
+if(WATCOM_BITS EQUAL 32)
+  set(CMAKE_CREATE_WIN32_EXE "system nt_win" )
+  set(CMAKE_CREATE_CONSOLE_EXE "system nt" )
+  string(APPEND CMAKE_SHARED_LINKER_FLAGS_INIT " system nt_dll")
+  string(APPEND CMAKE_MODULE_LINKER_FLAGS_INIT " system nt_dll")
+endif()
+
 foreach(type SHARED MODULE EXE)
   string(APPEND CMAKE_${type}_LINKER_FLAGS_DEBUG_INIT " debug all opt map")
   string(APPEND CMAKE_${type}_LINKER_FLAGS_RELWITHDEBINFO_INIT " debug all opt map")
@@ -39,11 +61,16 @@ set(CMAKE_RC_COMPILER "rc" )
 
 set(CMAKE_BUILD_TYPE_INIT Debug)
 
+string(APPEND CMAKE_C_FLAGS_INIT " -w3 -dWIN32")
+string(APPEND CMAKE_CXX_FLAGS_INIT " -xs -w3 -dWIN32")
+# For 32-bit compiler add additional flags:
 # single/multi-threaded                 /-bm
 # static/DLL run-time libraries         /-br
 # default is setup for multi-threaded + DLL run-time libraries
-string(APPEND CMAKE_C_FLAGS_INIT " -bt=nt -w3 -dWIN32 -br -bm")
-string(APPEND CMAKE_CXX_FLAGS_INIT " -bt=nt -xs -w3 -dWIN32 -br -bm")
+if(WATCOM_BITS EQUAL 32)
+  string(APPEND CMAKE_C_FLAGS_INIT " -bt=nt -br -bm")
+  string(APPEND CMAKE_CXX_FLAGS_INIT " -bt=nt -br -bm")
+endif()
 foreach(lang C CXX)
   string(APPEND CMAKE_${lang}_FLAGS_DEBUG_INIT " -d2")
   string(APPEND CMAKE_${lang}_FLAGS_MINSIZEREL_INIT " -s -os -d0 -dNDEBUG")
